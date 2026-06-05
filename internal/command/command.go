@@ -74,3 +74,16 @@ func HandlerRegister(s *state.State, cmd Command) error {
 	fmt.Println("User has been created: ", usr)
 	return nil
 }
+
+func HandlerReset(s *state.State, cmd Command) error {
+	if len(cmd.Args) != 0 {
+		return errors.New("Reset does not take any arguments")
+	}
+	err := s.Db_ptr.Reset(context.Background())
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Reset successfully")
+	return nil
+}
