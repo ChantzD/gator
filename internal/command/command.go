@@ -87,3 +87,23 @@ func HandlerReset(s *state.State, cmd Command) error {
 	fmt.Println("Reset successfully")
 	return nil
 }
+
+func HandlerUsers(s *state.State, cmd Command) error {
+	if len(cmd.Args) != 0 {
+		return errors.New("Reset does not take any arguments")
+	}
+
+	usrs, err := s.Db_ptr.GetUsers(context.Background())
+	if err != nil {
+		return err
+	}
+
+	for _, usr := range usrs {
+		status := ""
+		if usr.Name == s.Config_ptr.Current_user_name {
+			status += " (current)"
+		}
+		fmt.Println("* " + usr.Name + status)
+	}
+	return nil
+}
