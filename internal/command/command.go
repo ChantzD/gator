@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gator/internal/database"
+	"gator/internal/rss"
 	"gator/internal/state"
 	"time"
 
@@ -90,7 +91,7 @@ func HandlerReset(s *state.State, cmd Command) error {
 
 func HandlerUsers(s *state.State, cmd Command) error {
 	if len(cmd.Args) != 0 {
-		return errors.New("Reset does not take any arguments")
+		return errors.New("Users does not take any arguments")
 	}
 
 	usrs, err := s.Db_ptr.GetUsers(context.Background())
@@ -105,5 +106,19 @@ func HandlerUsers(s *state.State, cmd Command) error {
 		}
 		fmt.Println("* " + usr.Name + status)
 	}
+	return nil
+}
+
+func HandlerAgg(s *state.State, cmd Command) error {
+	// Will need to change this in the futur to accept args
+	if len(cmd.Args) != 0 {
+		return errors.New("Agg does not take any arguments")
+	}
+
+	feed, err := rss.FetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+	if err != nil {
+		return err
+	}
+	fmt.Println(feed)
 	return nil
 }
