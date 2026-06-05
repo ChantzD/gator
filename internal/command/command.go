@@ -122,3 +122,43 @@ func HandlerAgg(s *state.State, cmd Command) error {
 	fmt.Println(feed)
 	return nil
 }
+
+func HandlerAddFeed(s *state.State, cmd Command) error {
+	if len(cmd.Args) != 2 {
+		return errors.New("Incorrect amount of arguments passed into addfeed")
+	}
+	usr, err := s.Db_ptr.GetUser(context.Background(), s.Config_ptr.Current_user_name)
+	if err != nil {
+		return err
+	}
+
+	current_time := time.Now()
+	input_args := database.CreateFeedParams{ID: uuid.New(), CreatedAt: current_time, UpdatedAt: current_time, Name: cmd.Args[0], Url: cmd.Args[1], UserID: usr.ID}
+	feed, err := s.Db_ptr.CreateFeed(context.Background(), input_args)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(feed)
+	return nil
+}
+
+func HandlerFeeds(s *state.State, cmd Command) error {
+	if len(cmd.Args) != 0 {
+		return errors.New("Feeds does not take any arguments")
+	}
+
+	feeds, err := s.Db_ptr.GetFeeds(context.Background())
+	if err != nil {
+		return err
+	}
+
+	for _, feed := range feeds {
+		name, err := s.Db_ptr.GetUserName(context.Background(), feed.UserID)
+		if err != nil {
+			return err
+		}
+		fmt.Println(feed.Name + " " + feed.Url + " " + name)
+	}
+	return nil
+}
