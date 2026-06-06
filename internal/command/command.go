@@ -139,6 +139,14 @@ func HandlerAddFeed(s *state.State, cmd Command) error {
 		return err
 	}
 
+	// Dont want to mutate the original cmd
+	temp_cmd := cmd
+	temp_cmd.Args = temp_cmd.Args[1:]
+	err = HandlerFollow(s, temp_cmd)
+	if err != nil {
+		return err
+	}
+
 	fmt.Println(feed)
 	return nil
 }
@@ -159,6 +167,52 @@ func HandlerFeeds(s *state.State, cmd Command) error {
 			return err
 		}
 		fmt.Println(feed.Name + " " + feed.Url + " " + name)
+	}
+	return nil
+}
+
+func HandlerFollow(s *state.State, cmd Command) error {
+	if len(cmd.Args) != 1 {
+		return errors.New("Incorrect number of arguments passed to follow")
+	}
+	usr, err := s.Db_ptr.GetUser(context.Background(), s.Config_ptr.Current_user_name)
+	if err != nil {
+		return err
+	}
+
+	feed, err := s.Db_ptr.GetFeed(context.Background(), cmd.Args[0])
+	if err != nil {
+		return err
+	}
+
+	current_time := time.Now()
+	input_args := database.CreateFeedFollowParams{ID: uuid.New(), CreatedAt: current_time, UpdatedAt: current_time, UserID: usr.ID, FeedID: feed.ID}
+	feed_follow, err := s.Db_ptr.CreateFeedFollow(context.Background(), input_args)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(feed_follow.FeedName + " -> " + feed_follow.UserName)
+	return nil
+}
+
+func HandlerFollows(s *state.State, cmd Command) error {
+	if len(cmd.Args) != 0 {
+		return errors.New("Incorrect number of arguments passed to following")
+	}
+
+	usr, err := s.Db_ptr.GetUser(context.Background(), s.Config_ptr.Current_user_name)
+	if err != nil {
+		return err
+	}
+
+	feeds, err := s.Db_ptr.GetFeedFollowsForUser(context.Background(), usr.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, feed := range feeds {
+		fmt.Println(feed.FeedName)
 	}
 	return nil
 }
