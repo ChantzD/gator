@@ -8,8 +8,13 @@ import (
 	"gator/internal/database"
 	"gator/internal/rss"
 	"gator/internal/state"
+	"html"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/araddon/dateparse"
 
 	"github.com/google/uuid"
 )
@@ -128,6 +133,7 @@ func HandlerAgg(s *state.State, cmd Command) error {
 
 	ticker := time.NewTicker(time_betwixt_requests)
 	for ; ; <-ticker.C {
+		fmt.Println("Callin")
 		scrapeFeeds(s)
 	}
 }
@@ -247,6 +253,7 @@ func scrapeFeeds(s *state.State) error {
 		return err
 	}
 
+	fmt.Println("Fetching Feeds!")
 	current_time := time.Now()
 	null_time := sql.NullTime{Time: current_time, Valid: true}
 	input_args := database.MarkFeedFetchedParams{LastFetchedAt: null_time, UpdatedAt: current_time, ID: feed.ID}
@@ -257,8 +264,49 @@ func scrapeFeeds(s *state.State) error {
 		return err
 	}
 
-	for idx, item := range fetched_feed.Channel.Item {
-		fmt.Println(strconv.Itoa(idx) + " -> " + item.Title)
+	for _, item := range fetched_feed.Channel.Item {
+		dt, err := dateparse.ParseAny(item.PubDate)
+		if err != nil {
+			return err
+		}
+		params := database.CreatePostParams{ID: uuid.New(), CreatedAt: current_time, UpdatedAt: current_time, Title: item.Title, Url: item.Link, Description: item.Description, PublishedAt: dt, FeedID: feed.ID}
+		_, err = s.Db_ptr.CreatePost(context.Background(), params)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func stripHTML(s string) string {
+	var htmlTag = regexp.MustCompile(`<[^>]+>`)
+	return strings.TrimSpace(htmlTag.ReplaceAllString(html.UnescapeString(s), ""))
+}
+
+func HandlerBrowse(s *state.State, cmd Command, usr database.User) error {
+	if len(cmd.Args) > 1 {
+		return errors.New("Too many args passed to browse")
+	}
+
+	var limit int
+	var err error
+	if len(cmd.Args) > 0 {
+		limit, err = strconv.Atoi(cmd.Args[0])
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 2
+	}
+
+	params := database.GetPostsForUserParams{UserID: usr.ID, Limit: int32(limit)}
+	posts, err := s.Db_ptr.GetPostsForUser(context.Background(), params)
+
+	for idx, post := range posts {
+		fmt.Println(strconv.Itoa(idx+1) + " -> " + post.Title)
+		fmt.Println(stripHTML(post.Description))
+		fmt.Println()
 	}
 
 	return nil
