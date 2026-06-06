@@ -123,13 +123,9 @@ func HandlerAgg(s *state.State, cmd Command) error {
 	return nil
 }
 
-func HandlerAddFeed(s *state.State, cmd Command) error {
+func HandlerAddFeed(s *state.State, cmd Command, usr database.User) error {
 	if len(cmd.Args) != 2 {
 		return errors.New("Incorrect amount of arguments passed into addfeed")
-	}
-	usr, err := s.Db_ptr.GetUser(context.Background(), s.Config_ptr.Current_user_name)
-	if err != nil {
-		return err
 	}
 
 	current_time := time.Now()
@@ -142,7 +138,7 @@ func HandlerAddFeed(s *state.State, cmd Command) error {
 	// Dont want to mutate the original cmd
 	temp_cmd := cmd
 	temp_cmd.Args = temp_cmd.Args[1:]
-	err = HandlerFollow(s, temp_cmd)
+	err = HandlerFollow(s, temp_cmd, usr)
 	if err != nil {
 		return err
 	}
@@ -171,13 +167,9 @@ func HandlerFeeds(s *state.State, cmd Command) error {
 	return nil
 }
 
-func HandlerFollow(s *state.State, cmd Command) error {
+func HandlerFollow(s *state.State, cmd Command, usr database.User) error {
 	if len(cmd.Args) != 1 {
 		return errors.New("Incorrect number of arguments passed to follow")
-	}
-	usr, err := s.Db_ptr.GetUser(context.Background(), s.Config_ptr.Current_user_name)
-	if err != nil {
-		return err
 	}
 
 	feed, err := s.Db_ptr.GetFeed(context.Background(), cmd.Args[0])
@@ -196,14 +188,9 @@ func HandlerFollow(s *state.State, cmd Command) error {
 	return nil
 }
 
-func HandlerFollows(s *state.State, cmd Command) error {
+func HandlerFollows(s *state.State, cmd Command, usr database.User) error {
 	if len(cmd.Args) != 0 {
 		return errors.New("Incorrect number of arguments passed to following")
-	}
-
-	usr, err := s.Db_ptr.GetUser(context.Background(), s.Config_ptr.Current_user_name)
-	if err != nil {
-		return err
 	}
 
 	feeds, err := s.Db_ptr.GetFeedFollowsForUser(context.Background(), usr.ID)
@@ -213,6 +200,34 @@ func HandlerFollows(s *state.State, cmd Command) error {
 
 	for _, feed := range feeds {
 		fmt.Println(feed.FeedName)
+	}
+	return nil
+}
+
+func MiddlewareLoggedIn(handler func(s *state.State, cmd Command, user database.User) error) func(*state.State, Command) error {
+	return func(s *state.State, cmd Command) error {
+		usr, err := s.Db_ptr.GetUser(context.Background(), s.Config_ptr.Current_user_name)
+		if err != nil {
+			return err
+		}
+		return handler(s, cmd, usr)
+	}
+}
+
+func HandlerUnfollow(s *state.State, cmd Command, usr database.User) error {
+	if len(cmd.Args) != 1 {
+		return errors.New("Incorrect number of arguments passed to unfollow")
+	}
+
+	feed, err := s.Db_ptr.GetFeed(context.Background(), cmd.Args[0])
+	if err != nil {
+		return err
+	}
+
+	input_args := database.DeleteFeedFollowParams{UserID: usr.ID, FeedID: feed.ID}
+	err = s.Db_ptr.DeleteFeedFollow(context.Background(), input_args)
+	if err != nil {
+		return err
 	}
 	return nil
 }
