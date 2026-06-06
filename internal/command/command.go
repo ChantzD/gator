@@ -2,11 +2,13 @@ package command
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"gator/internal/database"
 	"gator/internal/rss"
 	"gator/internal/state"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -111,16 +113,23 @@ func HandlerUsers(s *state.State, cmd Command) error {
 
 func HandlerAgg(s *state.State, cmd Command) error {
 	// Will need to change this in the futur to accept args
-	if len(cmd.Args) != 0 {
-		return errors.New("Agg does not take any arguments")
+	if len(cmd.Args) != 1 {
+		return errors.New("Incorrect amount of arguments passed to agg")
 	}
 
-	feed, err := rss.FetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+	time_between_reqs := cmd.Args[0]
+
+	fmt.Println("Collecting feeds every " + time_between_reqs)
+
+	time_betwixt_requests, err := time.ParseDuration(time_between_reqs)
 	if err != nil {
 		return err
 	}
-	fmt.Println(feed)
-	return nil
+
+	ticker := time.NewTicker(time_betwixt_requests)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 }
 
 func HandlerAddFeed(s *state.State, cmd Command, usr database.User) error {
@@ -229,5 +238,28 @@ func HandlerUnfollow(s *state.State, cmd Command, usr database.User) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func scrapeFeeds(s *state.State) error {
+	feed, err := s.Db_ptr.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return err
+	}
+
+	current_time := time.Now()
+	null_time := sql.NullTime{Time: current_time, Valid: true}
+	input_args := database.MarkFeedFetchedParams{LastFetchedAt: null_time, UpdatedAt: current_time, ID: feed.ID}
+	s.Db_ptr.MarkFeedFetched(context.Background(), input_args)
+
+	fetched_feed, err := rss.FetchFeed(context.Background(), feed.Url)
+	if err != nil {
+		return err
+	}
+
+	for idx, item := range fetched_feed.Channel.Item {
+		fmt.Println(strconv.Itoa(idx) + " -> " + item.Title)
+	}
+
 	return nil
 }
