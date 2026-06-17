@@ -2,6 +2,8 @@
 
 A CLI RSS feed aggregator written in Go. Gator lets you register users, subscribe to RSS feeds, aggregate posts on a schedule, and browse the latest content — all from your terminal.
 
+NOTE: This README was produced with the help of AI -- this was mainly done to assist with formatting and making it look pretty. All of the content has been thoroughly vetted.
+
 ---
 
 ## Dependencies
